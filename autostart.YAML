@@ -1,0 +1,135 @@
+---
+autoinstall:
+  version: 1
+  identity:
+    hostname: AI-BOB
+    username: matt
+    password: >-
+      $6$RqYP2lhZc7gqtSqF$jNkh4gpFK8Hpqnf4TiQHHiT3zWOF6Gx4fnzyFUh2A.0yCw1OhLXL4.5iWME4qSqYCP8Eab/tsPNelABgXrlbe1
+  locale: en_US
+  keyboard:
+    layout: us
+    variant: ''
+  timezone: America/Chicago
+  updates: security
+  storage:
+    layout:
+      name: direct
+  kernel:
+    cmdline: nouveau.modeset=0
+  apt:
+    primary:
+      - arches:
+          - amd64
+        uri: 'http://archive.ubuntu.com/ubuntu'
+    sources:
+      graphics-drivers-ppa:
+        source: 'ppa:graphics-drivers/ppa'
+      cuda-keyring:
+        source: >-
+          deb [signed-by=/usr/share/keyrings/cuda-archive-keyring.gpg]
+          https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/
+          /
+        key: |
+          -----BEGIN PGP PUBLIC KEY BLOCK-----
+
+          mQINBGJYmlEBEAC6nJmeqByeReM+MSy4palACCnfOg4pOxffrrkldxz4jrDOZNK4
+          q8KG+ZbXrkdP0e9qTFRvZzN+A6Jw3ySfoiKXRBw5l2Zp81AYkghV641OpWNjZOyL
+          syKEtST9LR1ttHv1ZI71pj8NVG/EnpimZPOblEJ1OpibJJCXLrbn+qcJ8JNuGTSK
+          6v2aLBmhR8VR/aSJpmkg7fFjcGklweTI8+Ibj72HuY9JRD/+dtUoSh7z037mWo56
+          ee02lPFRD0pHOEAlLSXxFO/SDqRVMhcgHk0a8roCF+9h5Ni7ZUyxlGK/uHkqN7ED
+          /U/ATpGKgvk4t23eTpdRC8FXAlBZQyf/xnhQXsyF/z7+RV5CL0o1zk1LKgo+5K32
+          5ka5uZb6JSIrEPUaCPEMXu6EEY8zSFnCrRS/Vjkfvc9ViYZWzJ387WTjAhMdS7wd
+          PmdDWw2ASGUP4FrfCireSZiFX+ZAOspKpZdh0P5iR5XSx14XDt3jNK2EQQboaJAD
+          uqksItatOEYNu4JsCbc24roJvJtGhpjTnq1/dyoy6K433afU0DS2ZPLthLpGqeyK
+          MKNY7a2WjxhRmCSu5Zok/fGKcO62XF8a3eSj4NzCRv8LM6mG1Oekz6Zz+tdxHg19
+          ufHO0et7AKE5q+5VjE438Xpl4UWbM/Voj6VPJ9uzywDcnZXpeOqeTQh2pQARAQAB
+          tCBjdWRhdG9vbHMgPGN1ZGF0b29sc0BudmlkaWEuY29tPokCOQQTAQIAIwUCYlia
+          UQIbAwcLCQgHAwIBBhUIAgkKCwQWAgMBAh4BAheAAAoJEKS0aZY7+GPM1y4QALKh
+          BqSozrYbe341Qu7SyxHQgjRCGi4YhI3bHCMj5F6vEOHnwiFH6YmFkxCYtqcGjca6
+          iw7cCYMow/hgKLAPwkwSJ84EYpGLWx62+20rMM4OuZwauSUcY/kE2WgnQ74zbh3+
+          MHs56zntJFfJ9G+NYidvwDWeZn5HIzR4CtxaxRgpiykg0s3ps6X0U+vuVcLnutBF
+          7r81astvlVQERFbce/6KqHK+yj843Qrhb3JEolUoOETK06nD25bVtnAxe0QEyA90
+          9MpRNLfR6BdjPpxqhphDcMOhJfyubAroQUxG/7S+Yw+mtEqHrL/dz9iEYqodYiSo
+          zfi0b+HFI59sRkTfOBDBwb3kcARExwnvLJmqijiVqWkoJ3H67oA0XJN2nelucw+A
+          Hb+Jt9BWjyzKWlLFDnVHdGicyRJ0I8yqi32w8hGeXmu3tU58VWJrkXEXadBftmci
+          pemb6oZ/r5SCkW6kxr2PsNWcJoebUdynyOQGbVwpMtJAnjOYp0ObKOANbcIg+tsi
+          kyCIO5TiY3ADbBDPCeZK8xdcugXoW5WFwACGC0z+Cn0mtw8z3VGIPAMSCYmLusgW
+          t2+EpikwrP2inNp5Pc+YdczRAsa4s30Jpyv/UHEG5P9GKnvofaxJgnU56lJIRPzF
+          iCUGy6cVI0Fq777X/ME1K6A/bzZ4vRYNx8rUmVE5
+          =DO7z
+          -----END PGP PUBLIC KEY BLOCK-----
+      microsoft-vscode:
+        source: >-
+          deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg]
+          https://packages.microsoft.com/repos/code stable main
+        key: |
+          -----BEGIN PGP PUBLIC KEY BLOCK-----
+          Version: BSN Pgp v1.1.0.0
+
+          mQENBFYxWIwBCADAKoZhZlJxGNGWzqV+1OG1xiQeoowKhssGAKvd+buXCGISZJwT
+          LXZqIcIiLP7pqdcZWtE9bSc7yBY2MalDp9Liu0KekywQ6VVX1T72NPf5Ev6x6DLV
+          7aVWsCzUAF+eb7DC9fPuFLEdxmOEYoPjzrQ7cCnSV4JQxAqhU4T6OjbvRazGl3ag
+          OeizPXmRljMtUUttHQZnRhtlzkmwIrUivbfFPD+fEoHJ1+uIdfOzZX8/oKHKLe2j
+          H632kvsNzJFlROVvGLYAk2WRcLu+RjjggixhwiB+Mu/A8Tf4V6b+YppS44q8EvVr
+          M+QvY7LNSOffSO6Slsy9oisGTdfE39nC7pVRABEBAAG0N01pY3Jvc29mdCAoUmVs
+          ZWFzZSBzaWduaW5nKSA8Z3Bnc2VjdXJpdHlAbWljcm9zb2Z0LmNvbT6JATQEEwEI
+          AB4FAlYxWIwCGwMGCwkIBwMCAxUIAwMWAgECHgECF4AACgkQ6z6Urb4SKc+P9gf/
+          diY2900wvWEgV7iMgrtGzx79W/PbwWiOkKoD9sdzhARXWiP8Q5teL/t5TUH6TZ3B
+          ENboDjwr705jLLPwuEDtPI9jz4kvdT86JwwG6N8gnWM8Ldi56SdJEtXrzwtlB/Fe
+          6tyfMT1E/PrJfgALUG9MWTIJkc0GhRJoyPpGZ6YWSLGXnk4c0HltYKDFR7q4wtI8
+          4cBu4mjZHZbxIO6r8Cci+xxuJkpOTIpr4pdpQKpECM6x5SaT2gVnscbN0PE19KK9
+          nPsBxyK4wW0AvAhed2qldBPTipgzPhqB2gu0jSryil95bKrSmlYJd1Y1XfNHno5D
+          xfn5JwgySBIdWWvtOI05gw==
+          =zPfd
+          -----END PGP PUBLIC KEY BLOCK-----
+    packages:
+      - ubuntu-drivers-common
+      - software-properties-common
+      - curl
+      - wget
+      - gnupg
+      - ca-certificates
+      - build-essential
+      - dkms
+      - linux-headers-generic
+      - nvidia-driver-570
+      - cuda-toolkit-12-6
+      - nvidia-container-toolkit
+      - nvidia-settings
+      - nvidia-prime
+      - git
+      - python3-pip
+      - python3-dev
+      - python3-venv
+      - docker.io
+      - code
+  late-commands:
+    - curtin in-target -- mkdir -p /opt/conda
+    - 'curtin in-target -- chown matt:matt /opt/conda'
+    - >-
+      curtin in-target -- bash -c "wget -q
+      https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh
+      -O /tmp/mambaforge.sh"
+    - curtin in-target -- bash -c "bash /tmp/mambaforge.sh -b -p /opt/conda"
+    - 'curtin in-target -- chown -R matt:matt /opt/conda'
+    - curtin in-target -- sudo -u matt bash -c "/opt/conda/bin/conda init bash"
+    - >-
+      curtin in-target -- sudo -u matt bash -c "/opt/conda/bin/conda create -y
+      -n ml python=3.11"
+    - >-
+      curtin in-target -- sudo -u matt bash -c '/opt/conda/bin/conda install -y
+      -n ml pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c
+      nvidia -c conda-forge'
+    - curtin in-target -- systemctl enable docker
+    - curtin in-target -- usermod -aG docker matt
+    - >-
+      curtin in-target -- echo 'export PATH="/opt/conda/bin:$PATH"' >>
+      /etc/environment
+    - curtin in-target -- rm -f /tmp/mambaforge.sh
+    - 'curtin in-target -- chown -R matt:matt /home/matt'
+  user-data: |
+    #cloud-config
+    # Additional first-boot configuration can go here
+    runcmd:
+      - nvidia-smi  # Test NVIDIA driver installation

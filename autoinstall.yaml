@@ -14,18 +14,32 @@ autoinstall:
   storage:
     layout:
       name: direct
+  packages:
+    - software-properties-common
+    - wget
+    - curl
+    - python3
+    - python3-pip
+    - python3-venv
+    - ubuntu-drivers-common
+    - apt-transport-https
+    - ca-certificates
+    - gnupg
+    - lsb-release
   late-commands:
     - curtin in-target --target=/target -- apt update
-    - curtin in-target --target=/target -- apt install -y software-properties-common wget gpg python3 python3-pip curl
     # Add NVIDIA driver PPA
     - curtin in-target --target=/target -- add-apt-repository ppa:graphics-drivers/ppa -y
     - curtin in-target --target=/target -- apt update
     - curtin in-target --target=/target -- ubuntu-drivers install --gpgpu
-    # Install PyTorch with GPU support (CUDA)
-    - curtin in-target --target=/target -- python3 -m pip install --upgrade pip
-    - curtin in-target --target=/target -- python3 -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
     # Install VS Code
-    - curtin in-target --target=/target -- wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /target/etc/apt/trusted.gpg.d/microsoft.gpg
-    - curtin in-target --target=/target -- sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /target/etc/apt/sources.list.d/vscode.list'
+    - curtin in-target --target=/target -- wget -qO /tmp/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc
+    - curtin in-target --target=/target -- gpg --dearmor /tmp/microsoft.asc
+    - curtin in-target --target=/target -- mv /tmp/microsoft.asc.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
+    - curtin in-target --target=/target -- sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list'
     - curtin in-target --target=/target -- apt update
     - curtin in-target --target=/target -- apt install -y code
+    # Create a script for PyTorch installation (run after first boot)
+    - curtin in-target --target=/target -- sh -c 'echo "#!/bin/bash\npython3 -m pip install --upgrade pip --break-system-packages\npython3 -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 --break-system-packages" > /home/matt/install_pytorch.sh'
+    - curtin in-target --target=/target -- chmod +x /home/matt/install_pytorch.sh
+    - curtin in-target --target=/target -- chown matt:matt /home/matt/install_pytorch.sh

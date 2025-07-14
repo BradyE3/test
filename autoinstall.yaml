@@ -1,168 +1,118 @@
 autoinstall:
   version: 1
+  
+  # Basic system configuration
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+  
+  # Network configuration
+  network:
+    network:
+      version: 2
+      ethernets:
+        eth0:
+          dhcp4: true
+  
+  # Storage configuration - simple single disk setup
+  storage:
+    layout:
+      name: lvm
+  
+  # User configuration
   identity:
     hostname: AI-BOB
     username: matt
-    password: >-
-      $6$RqYP2lhZc7gqtSqF$jNkh4gpFK8Hpqnf4TiQHHiT3zWOF6Gx4fnzyFUh2A.0yCw1OhLXL4.5iWME4qSqYCP8Eab/tsPNelABgXrlbe1
-  locale: en_US
-  keyboard:
-    layout: us
-    variant: ''
-  timezone: America/Chicago
-  updates: security
-  network:
-    ethernets:
-      eth0:
-        dhcp4: true
-    version: 2
+    password: $6$RqYP2lhZc7gqtSqF$jNkh4gpFK8Hpqnf4TiQHHiT3zWOF6Gx4fnzyFUh2A.0yCw1OhLXL4.5iWME4qSqYCP8Eab/tsPNelABgXrlbe1  
+    realname: System User
+  
+  # SSH configuration
   ssh:
     install-server: true
     allow-pw: true
-  storage:
-    layout:
-      name: direct
+  
+  # Package configuration
+  apt:
+    primary:
+      - arches: [amd64, i386]
+        uri: http://archive.ubuntu.com/ubuntu
+    security:
+      - arches: [amd64, i386]
+        uri: http://security.ubuntu.com/ubuntu
+    sources:
+      # Graphics drivers PPA
+      graphics-drivers:
+        source: 'ppa:graphics-drivers/ppa'
+        keyid: 'FCAE110B1118213C'
+  
+  # Package selection
   packages:
-    - software-properties-common
-    - wget
+    # Basic system packages
+    - ubuntu-desktop-minimal
     - curl
+    - wget
+    - git
+    - build-essential
+    - dkms
+    - linux-headers-generic
+    
+    # NVIDIA packages
+    - nvidia-driver-560  # Latest available driver
+    - nvidia-dkms-560
+    - nvidia-utils-560
+    - nvidia-settings
+    - nvidia-prime
+    
+    # VS Code
+    # Will be installed via late-commands with proper key setup
+    
+    # Additional useful packages
+    - firefox
+    - vim
+    - htop
+    - tree
+    - unzip
+    - software-properties-common
     - apt-transport-https
     - ca-certificates
     - gnupg
     - lsb-release
-    - build-essential
-    - dkms
-    - linux-headers-generic
-    - pkg-config
-    - libglvnd-dev
-    - python3
-    - python3-pip
-    - python3-venv
-  user-data:
-    users:
-      - name: matt
-        groups: [adm, sudo]
-        shell: /bin/bash
-        sudo: ALL=(ALL) NOPASSWD:ALL
+  
+  # Late commands to run after installation
   late-commands:
-    # Create log file
-    - curtin in-target --target=/target -- mkdir -p /var/log
-    - curtin in-target --target=/target -- touch /var/log/autoinstall-custom.log
-    - curtin in-target --target=/target -- chmod 666 /var/log/autoinstall-custom.log
+    # Add Microsoft GPG key and repository for VS Code
+    - curtin in-target --target=/target -- wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /etc/apt/keyrings/packages.microsoft.gpg
+    - curtin in-target --target=/target -- sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
     
-    # Update system
-    - curtin in-target --target=/target -- sh -c 'echo "=== Starting RTX 5090 Setup at $(date) ===" >> /var/log/autoinstall-custom.log'
+    # Update package lists
     - curtin in-target --target=/target -- apt update
     
-    # Install VS Code - Simplified and reliable
-    - curtin in-target --target=/target -- sh -c 'echo "=== Installing VS Code ===" >> /var/log/autoinstall-custom.log'
-    - curtin in-target --target=/target -- wget -O /tmp/vscode.deb "https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64"
-    - curtin in-target --target=/target -- dpkg -i /tmp/vscode.deb || true
-    - curtin in-target --target=/target -- apt-get install -f -y
+    # Install VS Code
+    - curtin in-target --target=/target -- apt install -y code
     
-    # NVIDIA RTX 5090 Driver Installation
-    - curtin in-target --target=/target -- sh -c 'echo "=== Installing NVIDIA RTX 5090 Drivers ===" >> /var/log/autoinstall-custom.log'
-    - curtin in-target --target=/target -- add-apt-repository ppa:graphics-drivers/ppa -y
-    - curtin in-target --target=/target -- apt update
-    - curtin in-target --target=/target -- ubuntu-drivers install --gpgpu || true
+    # Install latest NVIDIA driver (in case newer version is available)
+    - curtin in-target --target=/target -- ubuntu-drivers autoinstall
     
-    # Disable nouveau driver
-    - curtin in-target --target=/target -- sh -c 'echo "blacklist nouveau" > /etc/modprobe.d/blacklist-nouveau.conf'
-    - curtin in-target --target=/target -- sh -c 'echo "options nouveau modeset=0" >> /etc/modprobe.d/blacklist-nouveau.conf'
-    - curtin in-target --target=/target -- update-initramfs -u
+    # Enable NVIDIA persistence daemon
+    - curtin in-target --target=/target -- systemctl enable nvidia-persistenced
     
-    # Create setup scripts in /opt (accessible to all users)
-    - curtin in-target --target=/target -- mkdir -p /opt/setup-scripts
+    # Configure NVIDIA settings
+    - curtin in-target --target=/target -- nvidia-xconfig
     
-    # Create VS Code installer script
-    - curtin in-target --target=/target -- sh -c 'cat > /opt/setup-scripts/install_vscode.sh << "VSCODE_SCRIPT"
-#!/bin/bash
-if command -v code &> /dev/null; then
-  echo "VS Code is already installed"
-  exit 0
-fi
-echo "Installing VS Code..."
-cd /tmp
-wget -O vscode.deb "https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64"
-sudo dpkg -i vscode.deb
-sudo apt-get install -f -y
-VSCODE_SCRIPT'
+    # Install additional VS Code extensions (optional)
+    - curtin in-target --target=/target -- sudo -u user code --install-extension ms-python.python --user-data-dir=/home/user/.vscode
+    - curtin in-target --target=/target -- sudo -u user code --install-extension ms-vscode.cpptools --user-data-dir=/home/user/.vscode
     
-    # Create PyTorch installer
-    - curtin in-target --target=/target -- sh -c 'cat > /opt/setup-scripts/install_pytorch.sh << "PYTORCH_SCRIPT"
-#!/bin/bash
-echo "Installing PyTorch for RTX 5090..."
-python3 -m venv ~/pytorch_env
-source ~/pytorch_env/bin/activate
-pip install --upgrade pip
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-echo "PyTorch installed. Activate with: source ~/pytorch_env/bin/activate"
-PYTORCH_SCRIPT'
+    # Set up NVIDIA environment variables
+    - curtin in-target --target=/target -- echo 'export PATH=/usr/local/cuda/bin:$PATH' >> /home/user/.bashrc
+    - curtin in-target --target=/target -- echo 'export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH' >> /home/user/.bashrc
     
-    # Create verification script
-    - curtin in-target --target=/target -- sh -c 'cat > /opt/setup-scripts/verify_setup.sh << "VERIFY_SCRIPT"
-#!/bin/bash
-echo "=== AI-BOB Setup Verification ==="
-echo ""
-echo "1. VS Code:"
-if command -v code &> /dev/null; then
-  echo "   ✓ Installed - $(code --version 2>/dev/null | head -1)"
-else
-  echo "   ✗ Not installed - run: bash /opt/setup-scripts/install_vscode.sh"
-fi
-echo ""
-echo "2. NVIDIA Drivers:"
-if command -v nvidia-smi &> /dev/null; then
-  echo "   ✓ Installed"
-  nvidia-smi --query-gpu=name,driver_version --format=csv
-else
-  echo "   ✗ Not installed"
-fi
-echo ""
-echo "3. PyTorch: run: bash /opt/setup-scripts/install_pytorch.sh"
-VERIFY_SCRIPT'
+    # Final system update
+    - curtin in-target --target=/target -- apt upgrade -y
     
-    # Create first-boot setup script
-    - curtin in-target --target=/target -- sh -c 'cat > /opt/setup-scripts/first-boot.sh << "FIRSTBOOT_SCRIPT"
-#!/bin/bash
-# This script runs on first boot to complete setup
-USER_HOME="/home/matt"
-if [ -d "$USER_HOME" ]; then
-  echo "Copying setup scripts to user home..."
-  cp /opt/setup-scripts/*.sh $USER_HOME/
-  chown matt:matt $USER_HOME/*.sh
-  chmod +x $USER_HOME/*.sh
-  echo "Setup scripts copied to $USER_HOME"
-fi
-# Verify VS Code installation
-if ! command -v code &> /dev/null; then
-  echo "VS Code not found, attempting installation..."
-  bash /opt/setup-scripts/install_vscode.sh
-fi
-FIRSTBOOT_SCRIPT'
-    
-    # Make scripts executable
-    - curtin in-target --target=/target -- chmod +x /opt/setup-scripts/*.sh
-    
-    # Create systemd service for first boot
-    - curtin in-target --target=/target -- sh -c 'cat > /etc/systemd/system/first-boot-setup.service << "SERVICE"
-[Unit]
-Description=First Boot Setup
-After=multi-user.target
-ConditionPathExists=!/var/lib/first-boot-done
-
-[Service]
-Type=oneshot
-ExecStart=/opt/setup-scripts/first-boot.sh
-ExecStartPost=/usr/bin/touch /var/lib/first-boot-done
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-SERVICE'
-    
-    - curtin in-target --target=/target -- systemctl enable first-boot-setup.service
-    
-    # Final status
-    - curtin in-target --target=/target -- sh -c 'echo "=== Installation Complete at $(date) ===" >> /var/log/autoinstall-custom.log'
-    - curtin in-target --target=/target -- sh -c 'echo "Setup scripts available in /opt/setup-scripts/" >> /var/log/autoinstall-custom.log'
+    # Clean up
+    - curtin in-target --target=/target -- apt autoremove -y
+    - curtin in-target --target=/target -- apt autoclean
+  
+  # Automatic reboot after installation
+  shutdown: reboot

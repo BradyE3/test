@@ -1,0 +1,31 @@
+---
+autoinstall:
+  version: 1
+  identity:
+    hostname: AI-BOB
+    username: matt
+    password: >-
+      $6$RqYP2lhZc7gqtSqF$jNkh4gpFK8Hpqnf4TiQHHiT3zWOF6Gx4fnzyFUh2A.0yCw1OhLXL4.5iWME4qSqYCP8Eab/tsPNelABgXrlbe1
+  locale: en_US
+  keyboard:
+    layout: us
+    variant: ''
+  timezone: America/Chicago
+  updates: security
+  storage:
+    layout:
+      name: direct
+  kernel:
+    cmdline: nouveau.modeset=0
+  late-commands:
+    - curtin in-target --target=/target apt update
+    - curtin in-target --target=/target apt install -y software-properties-common wget gpg
+    # Install NVIDIA drivers (latest available, supports RTX 5090)
+    - curtin in-target --target=/target ubuntu-drivers autoinstall
+    # Add Microsoft GPG key for VS Code
+    - curtin in-target --target=/target wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /target/etc/apt/trusted.gpg.d/microsoft.gpg
+    - curtin in-target --target=/target sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /target/etc/apt/sources.list.d/vscode.list'
+    - curtin in-target --target=/target apt update
+    - curtin in-target --target=/target apt install -y code
+  packages:
+    - openssh-server

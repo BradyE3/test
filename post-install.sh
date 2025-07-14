@@ -199,6 +199,45 @@ install_nodejs() {
     success "Node.js installed via nvm"
 }
 
+# Function to install VS Code
+install_vscode() {
+    log "Installing Visual Studio Code..."
+    
+    if command_exists code; then
+        success "VS Code is already installed"
+        return 0
+    fi
+    
+    # Add Microsoft GPG key and repository
+    if command_exists curl; then
+        curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/packages.microsoft.gpg
+        sudo install -o root -g root -m 644 /tmp/packages.microsoft.gpg /etc/apt/trusted.gpg.d/
+        echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
+        
+        # Update package cache and install VS Code
+        sudo apt update
+        sudo apt install code -y
+        
+        # Install useful VS Code extensions
+        log "Installing VS Code extensions..."
+        code --install-extension ms-python.python
+        code --install-extension ms-python.black-formatter
+        code --install-extension ms-python.flake8
+        code --install-extension ms-toolsai.jupyter
+        code --install-extension ms-azuretools.vscode-docker
+        code --install-extension ms-vscode.vscode-json
+        code --install-extension bradlc.vscode-tailwindcss
+        code --install-extension esbenp.prettier-vscode
+        code --install-extension ms-vscode.vscode-typescript-next
+        code --install-extension gitpod.gitpod-desktop
+        
+        success "VS Code and extensions installed successfully"
+    else
+        error "curl is required to install VS Code"
+        return 1
+    fi
+}
+
 # Function to install useful development tools
 install_dev_tools() {
     log "Installing development tools..."
@@ -259,6 +298,9 @@ main() {
     # Install PyTorch
     install_pytorch
     
+    # Install VS Code
+    install_vscode
+    
     # Install additional Python packages
     install_pip_packages
     
@@ -275,9 +317,10 @@ main() {
     echo "1. Log out and back in to activate Docker group membership"
     echo "2. Restart your terminal or run: source ~/.bashrc"
     echo "3. To use PyTorch, run: conda activate pytorch"
-    echo "4. Test Docker with: docker --version"
-    echo "5. Test Docker Compose with: docker-compose --version"
-    echo "6. Test PyTorch with: python -c 'import torch; print(torch.__version__)'"
+    echo "4. Test VS Code with: code --version"
+    echo "5. Test Docker with: docker --version"
+    echo "6. Test Docker Compose with: docker-compose --version"
+    echo "7. Test PyTorch with: python -c 'import torch; print(torch.__version__)'"
 }
 
 # Run main function

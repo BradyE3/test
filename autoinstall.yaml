@@ -1,4 +1,4 @@
----
+#cloud-config
 autoinstall:
   version: 1
   identity:
@@ -15,17 +15,8 @@ autoinstall:
   storage:
     layout:
       name: direct
-  kernel:
-    cmdline: nouveau.modeset=0
   late-commands:
     - curtin in-target --target=/target apt update
     - curtin in-target --target=/target apt install -y software-properties-common wget gpg
-    # Install NVIDIA drivers (latest available, supports RTX 5090)
     - curtin in-target --target=/target ubuntu-drivers autoinstall
-    # Add Microsoft GPG key for VS Code
-    - curtin in-target --target=/target wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /target/etc/apt/trusted.gpg.d/microsoft.gpg
-    - curtin in-target --target=/target sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /target/etc/apt/sources.list.d/vscode.list'
-    - curtin in-target --target=/target apt update
-    - curtin in-target --target=/target apt install -y code
-  packages:
-    - openssh-server
+    - curtin in-target --target=/target wget -qO- https://packages.microsoft.com/keys/microsoft.as

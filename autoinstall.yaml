@@ -33,13 +33,43 @@ autoinstall:
     - curtin in-target --target=/target -- apt update
     - curtin in-target --target=/target -- ubuntu-drivers install --gpgpu
     # Install VS Code
-    - curtin in-target --target=/target -- wget -qO /tmp/microsoft.asc https://packages.microsoft.com/keys/microsoft.asc
-    - curtin in-target --target=/target -- gpg --dearmor /tmp/microsoft.asc
-    - curtin in-target --target=/target -- mv /tmp/microsoft.asc.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
-    - curtin in-target --target=/target -- sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list'
+    - curtin in-target --target=/target -- wget -qO- https://packages.microsoft.com/keys/microsoft.asc | curtin in-target --target=/target -- gpg --dearmor -o /usr/share/keyrings/microsoft.gpg
+    - curtin in-target --target=/target -- sh -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list'
     - curtin in-target --target=/target -- apt update
     - curtin in-target --target=/target -- apt install -y code
-    # Create a script for PyTorch installation (run after first boot)
-    - curtin in-target --target=/target -- sh -c 'echo "#!/bin/bash\npython3 -m pip install --upgrade pip --break-system-packages\npython3 -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 --break-system-packages" > /home/matt/install_pytorch.sh'
+    # Create directory for user first
+    - curtin in-target --target=/target -- mkdir -p /home/matt
+    # Create a script for PyTorch installation (to be run after first boot)
+    - |
+      cat <<'EOF' | curtin in-target --target=/target -- tee /home/matt/install_pytorch.sh
+      #!/bin/bash
+      # Create a virtual environment for PyTorch
+      python3 -m venv ~/pytorch_env
+      source ~/pytorch_env/bin/activate
+      pip install --upgrade pip
+      pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+      echo "PyTorch installed in virtual environment at ~/pytorch_env"
+      echo "To activate, run: source ~/pytorch_env/bin/activate"
+      EOF
     - curtin in-target --target=/target -- chmod +x /home/matt/install_pytorch.sh
-    - curtin in-target --target=/target -- chown matt:matt /home/matt/install_pytorch.sh
+    - curtin in-target --target=/target -- chown -R matt:matt /home/matt
+    # Create a systemd service to run the script on first boot (optional)
+    - |
+      cat <<'EOF' | curtin in-target --target=/target -- tee /etc/systemd/system/pytorch-install.service
+      [Unit]
+      Description=Install PyTorch on first boot
+      After=network-online.target
+      Wants=network-online.target
+      ConditionPathExists=!/home/matt/.pytorch_installed
+      
+      [Service]
+      Type=oneshot
+      User=matt
+      ExecStart=/home/matt/install_pytorch.sh
+      ExecStartPost=/usr/bin/touch /home/matt/.pytorch_installed
+      RemainAfterExit=yes
+      
+      [Install]
+      WantedBy=multi-user.target
+      EOF
+    - curtin in-target --target=/target -- systemctl enable pytorch-install.service

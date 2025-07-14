@@ -1,372 +1,76 @@
 #!/bin/bash
 
-# User-space post-install script for Docker, Docker Compose, and PyTorch
-# This script installs tools in user space where possible
+# Concise post-install script for Docker, Docker Compose, PyTorch, and VS Code
+set -e
 
-set -e  # Exit on any error
+echo "🚀 Starting development environment setup..."
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Update system and install basics
+sudo apt update
+sudo apt install -y curl wget git build-essential software-properties-common
 
-# Logging function
-log() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# Create local bin directory if it doesn't exist
-mkdir -p ~/.local/bin
-
-# Add ~/.local/bin to PATH if not already there
-if ! echo "$PATH" | grep -q "$HOME/.local/bin"; then
-    echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-    export PATH="$HOME/.local/bin:$PATH"
-    log "Added ~/.local/bin to PATH"
+# Install Docker
+if ! command -v docker &> /dev/null; then
+    echo "📦 Installing Docker..."
+    curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh && rm get-docker.sh
+    sudo usermod -aG docker $USER
+    echo "⚠️  Log out and back in for Docker group membership"
 fi
 
-# Function to check if command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
+# Install Docker Compose
+if ! command -v docker-compose &> /dev/null; then
+    echo "📦 Installing Docker Compose..."
+    mkdir -p ~/.local/bin
+    COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep -Po '"tag_name": "\K[^"]*')
+    curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o ~/.local/bin/docker-compose
+    chmod +x ~/.local/bin/docker-compose
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+fi
 
-# Function to install Docker (requires sudo for system-wide installation)
-install_docker() {
-    log "Installing Docker..."
+# Install VS Code
+if ! command -v code &> /dev/null; then
+    echo "📦 Installing VS Code..."
+    wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
+    sudo install -o root -g root -m 644 packages.microsoft.gpg /etc/apt/trusted.gpg.d/
+    echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
+    sudo apt update && sudo apt install code -y
+    rm -f packages.microsoft.gpg
     
-    if command_exists docker; then
-        success "Docker is already installed"
-        return 0
-    fi
-    
-    # Check if we're on a supported system
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        # Install Docker using the official script
-        if command_exists curl; then
-            curl -fsSL https://get.docker.com -o get-docker.sh
-            sudo sh get-docker.sh
-            rm get-docker.sh
-            
-            # Add user to docker group to avoid needing sudo
-            sudo usermod -aG docker $USER
-            warning "You need to log out and back in for Docker group membership to take effect"
-        else
-            error "curl is required to install Docker"
-            return 1
-        fi
-    else
-        error "Docker installation script only supports Linux. Please install Docker manually."
-        return 1
-    fi
-    
-    success "Docker installation completed"
-}
-
-# Function to install Docker Compose
-install_docker_compose() {
-    log "Installing Docker Compose..."
-    
-    if command_exists docker-compose; then
-        success "Docker Compose is already installed"
-        return 0
-    fi
-    
-    # Get latest release version
-    if command_exists curl; then
-        COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep -Po '"tag_name": "\K[^"]*')
-        
-        # Download and install Docker Compose
-        curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o ~/.local/bin/docker-compose
-        chmod +x ~/.local/bin/docker-compose
-        
-        success "Docker Compose ${COMPOSE_VERSION} installed successfully"
-    else
-        error "curl is required to install Docker Compose"
-        return 1
-    fi
-}
-
-# Function to install Miniconda (for PyTorch)
-install_miniconda() {
-    log "Installing Miniconda..."
-    
-    if [ -d "$HOME/miniconda3" ]; then
-        success "Miniconda is already installed"
-        return 0
-    fi
-    
-    # Download and install Miniconda
-    if command_exists wget; then
-        wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh
-    elif command_exists curl; then
-        curl -o ~/miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-    else
-        error "wget or curl is required to install Miniconda"
-        return 1
-    fi
-    
-    # Install Miniconda silently
-    bash ~/miniconda.sh -b -p $HOME/miniconda3
-    rm ~/miniconda.sh
-    
-    # Initialize conda
-    $HOME/miniconda3/bin/conda init bash
-    
-    success "Miniconda installed successfully"
-}
-
-# Function to install PyTorch
-install_pytorch() {
-    log "Installing PyTorch..."
-    
-    # Source conda to make it available in this script
-    source $HOME/miniconda3/etc/profile.d/conda.sh
-    
-    # Create a new conda environment for PyTorch
-    conda create -n pytorch python=3.9 -y
-    conda activate pytorch
-    
-    # Install PyTorch (CPU version - change if you need GPU support)
-    conda install pytorch torchvision torchaudio cpuonly -c pytorch -y
-    
-    # Install additional useful packages
-    conda install numpy pandas matplotlib jupyter -y
-    pip install tensorboard
-    
-    success "PyTorch environment created and packages installed"
-    log "To activate the PyTorch environment, run: conda activate pytorch"
-}
-
-# Function to install Python pip packages in user space
-install_pip_packages() {
-    log "Installing additional Python packages..."
-    
-    # Install useful packages for development
-    pip install --user \
-        requests \
-        flask \
-        fastapi \
-        uvicorn \
-        black \
-        flake8 \
-        pytest \
-        python-dotenv
-    
-    success "Additional Python packages installed"
-}
-
-# Function to install Node.js using Node Version Manager (nvm)
-install_nodejs() {
-    log "Installing Node.js via nvm..."
-    
-    if [ -d "$HOME/.nvm" ]; then
-        success "nvm is already installed"
-        return 0
-    fi
-    
-    # Install nvm
-    if command_exists curl; then
-        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-    elif command_exists wget; then
-        wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-    else
-        error "curl or wget is required to install nvm"
-        return 1
-    fi
-    
-    # Source nvm
-    export NVM_DIR="$HOME/.nvm"
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-    
-    # Install latest LTS Node.js
-    nvm install --lts
-    nvm use --lts
-    
-    success "Node.js installed via nvm"
-}
-
-# Function to install VS Code
-install_vscode() {
-    log "Installing Visual Studio Code..."
-    
-    if command_exists code; then
-        success "VS Code is already installed"
-        return 0
-    fi
-    
-    # Method 1: Try APT repository (recommended)
-    log "Attempting VS Code installation via APT repository..."
-    if command_exists curl; then
-        # Install dependencies
-        sudo apt install -y software-properties-common apt-transport-https wget
-        
-        # Add Microsoft GPG key
-        wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
-        sudo install -o root -g root -m 644 packages.microsoft.gpg /etc/apt/trusted.gpg.d/
-        
-        # Add VS Code repository
-        echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
-        
-        # Update package cache and install VS Code
-        sudo apt update
-        sudo apt install code -y
-        
-        # Clean up
-        rm -f packages.microsoft.gpg
-        
-        # Check if installation was successful
-        if command_exists code; then
-            success "VS Code installed successfully via APT"
-            install_vscode_extensions
-        else
-            warning "APT installation failed, trying Snap method..."
-            install_vscode_snap
-        fi
-    else
-        warning "curl/wget not available, trying Snap method..."
-        install_vscode_snap
-    fi
-}
-
-# Function to install VS Code via Snap (fallback method)
-install_vscode_snap() {
-    log "Installing VS Code via Snap..."
-    
-    if command_exists snap; then
-        sudo snap install code --classic
-        
-        if command_exists code; then
-            success "VS Code installed successfully via Snap"
-            install_vscode_extensions
-        else
-            error "VS Code installation failed via both APT and Snap"
-            return 1
-        fi
-    else
-        error "Neither APT nor Snap method worked for VS Code installation"
-        return 1
-    fi
-}
-
-# Function to install VS Code extensions
-install_vscode_extensions() {
-    log "Installing VS Code extensions..."
-    
-    # Wait a moment for VS Code to be ready
-    sleep 2
-    
-    # Install useful VS Code extensions
+    # Install key extensions
     code --install-extension ms-python.python --force
-    code --install-extension ms-python.black-formatter --force
-    code --install-extension ms-python.flake8 --force
     code --install-extension ms-toolsai.jupyter --force
     code --install-extension ms-azuretools.vscode-docker --force
-    code --install-extension ms-vscode.vscode-json --force
-    code --install-extension bradlc.vscode-tailwindcss --force
-    code --install-extension esbenp.prettier-vscode --force
-    code --install-extension ms-vscode.vscode-typescript-next --force
-    
-    success "VS Code extensions installed successfully"
-}
+fi
 
-# Function to install useful development tools
-install_dev_tools() {
-    log "Installing development tools..."
+# Install Miniconda and PyTorch
+if [ ! -d "$HOME/miniconda3" ]; then
+    echo "📦 Installing Miniconda and PyTorch..."
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh
+    bash ~/miniconda.sh -b -p $HOME/miniconda3 && rm ~/miniconda.sh
+    $HOME/miniconda3/bin/conda init bash
     
-    # Install GitHub CLI if not present
-    if ! command_exists gh; then
-        if command_exists curl; then
-            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-            sudo apt update
-            sudo apt install gh -y
-        else
-            warning "Skipping GitHub CLI installation (curl not available)"
-        fi
-    fi
-    
-    # Install other useful tools that can be installed in user space
-    pip install --user \
-        httpie \
-        tldr \
-        cookiecutter
-    
-    success "Development tools installed"
-}
+    # Create PyTorch environment
+    source $HOME/miniconda3/etc/profile.d/conda.sh
+    conda create -n pytorch python=3.9 -y
+    conda activate pytorch
+    conda install pytorch torchvision torchaudio cpuonly -c pytorch -y
+    conda install numpy pandas matplotlib jupyter -y
+fi
 
-# Main installation function
-main() {
-    log "Starting post-install setup..."
-    
-    # Update package lists (requires sudo)
-    if command_exists apt; then
-        sudo apt update
-    elif command_exists yum; then
-        sudo yum update
-    elif command_exists dnf; then
-        sudo dnf update
-    fi
-    
-    # Install basic dependencies
-    log "Installing basic dependencies..."
-    if command_exists apt; then
-        sudo apt install -y curl wget git build-essential
-    elif command_exists yum; then
-        sudo yum install -y curl wget git gcc gcc-c++ make
-    elif command_exists dnf; then
-        sudo dnf install -y curl wget git gcc gcc-c++ make
-    fi
-    
-    # Install Docker
-    install_docker
-    
-    # Install Docker Compose
-    install_docker_compose
-    
-    # Install Miniconda
-    install_miniconda
-    
-    # Install PyTorch
-    install_pytorch
-    
-    # Install VS Code
-    install_vscode
-    
-    # Install additional Python packages
-    install_pip_packages
-    
-    # Install Node.js
-    install_nodejs
-    
-    # Install development tools
-    install_dev_tools
-    
-    success "Post-install setup completed!"
-    
-    echo
-    log "Next steps:"
-    echo "1. Log out and back in to activate Docker group membership"
-    echo "2. Restart your terminal or run: source ~/.bashrc"
-    echo "3. To use PyTorch, run: conda activate pytorch"
-    echo "4. Test VS Code with: code --version"
-    echo "5. Test Docker with: docker --version"
-    echo "6. Test Docker Compose with: docker-compose --version"
-    echo "7. Test PyTorch with: python -c 'import torch; print(torch.__version__)'"
-}
+# Install Node.js via nvm
+if [ ! -d "$HOME/.nvm" ]; then
+    echo "📦 Installing Node.js..."
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    nvm install --lts && nvm use --lts
+fi
 
-# Run main function
-main "$@"
+# Install additional tools
+pip install --user requests flask fastapi black pytest
+
+echo "✅ Setup complete! Next steps:"
+echo "1. Log out and back in (for Docker)"
+echo "2. Restart terminal or: source ~/.bashrc"
+echo "3. Activate PyTorch: conda activate pytorch"
+echo "4. Test: docker --version && code --version"

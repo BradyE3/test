@@ -6,6 +6,14 @@ autoinstall:
   keyboard:
     layout: us
   
+  # Network configuration
+  network:
+    network:
+      version: 2
+      ethernets:
+        eth0:
+          dhcp4: true
+  
   # Storage configuration - simple single disk setup
   storage:
     layout:
@@ -15,7 +23,7 @@ autoinstall:
   identity:
     hostname: AI-BOB
     username: matt
-    password: $6$RqYP2lhZc7gqtSqF$jNkh4gpFK8Hpqnf4TiQHHiT3zWOF6Gx4fnzyFUh2A.0yCw1OhLXL4.5iWME4qSqYCP8Eab/tsPNelABgXrlbe1  
+    password: $6$RqYP2lhZc7gqtSqF$jNkh4gpFK8Hpqnf4TiQHHiT3zWOF6Gx4fnzyFUh2A.0yCw1OhLXL4.5iWME4qSqYCP8Eab/tsPNelABgXrlbe1
     realname: System User
   
   # SSH configuration
@@ -55,8 +63,8 @@ autoinstall:
     - nvidia-settings
     - nvidia-prime
     
-    # VS Code
-    # Will be installed via late-commands with proper key setup
+    # VS Code - removed due to installation issues
+    # Install manually after system setup if needed
     
     # Additional useful packages
     - firefox
@@ -72,15 +80,8 @@ autoinstall:
   
   # Late commands to run after installation
   late-commands:
-    # Add Microsoft GPG key and repository for VS Code
-    - curtin in-target --target=/target -- wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /etc/apt/keyrings/packages.microsoft.gpg
-    - curtin in-target --target=/target -- sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
-    
     # Update package lists
     - curtin in-target --target=/target -- apt update
-    
-    # Install VS Code
-    - curtin in-target --target=/target -- apt install -y code
     
     # Install latest NVIDIA driver (in case newer version is available)
     - curtin in-target --target=/target -- ubuntu-drivers autoinstall
@@ -90,10 +91,6 @@ autoinstall:
     
     # Configure NVIDIA settings
     - curtin in-target --target=/target -- nvidia-xconfig
-    
-    # Install additional VS Code extensions (optional)
-    - curtin in-target --target=/target -- sudo -u user code --install-extension ms-python.python --user-data-dir=/home/user/.vscode
-    - curtin in-target --target=/target -- sudo -u user code --install-extension ms-vscode.cpptools --user-data-dir=/home/user/.vscode
     
     # Set up NVIDIA environment variables
     - curtin in-target --target=/target -- echo 'export PATH=/usr/local/cuda/bin:$PATH' >> /home/user/.bashrc

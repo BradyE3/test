@@ -17,15 +17,18 @@ autoinstall:
       name: direct
 late-commands:
   - curtin in-target --target=/target apt update
-  - curtin in-target --target=/target apt install -y software-properties-common wget gpg
-  # Add NVIDIA official PPA
+  - curtin in-target --target=/target apt install -y software-properties-common wget gpg python3 python3-pip
+  # Add NVIDIA driver PPA
   - curtin in-target --target=/target add-apt-repository -y ppa:graphics-drivers/ppa
   - curtin in-target --target=/target apt update
-  # Install latest recommended NVIDIA driver (550+)
   - curtin in-target --target=/target ubuntu-drivers install --gpgpu
-  # Add Microsoft repo and install VS Code
+  # Install PyTorch with GPU support (CUDA)
+  - curtin in-target --target=/target python3 -m pip install --upgrade pip
+  - curtin in-target --target=/target python3 -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+  # Install VS Code
   - curtin in-target --target=/target wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /target/etc/apt/trusted.gpg.d/microsoft.gpg
   - curtin in-target --target=/target sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /target/etc/apt/sources.list.d/vscode.list'
   - curtin in-target --target=/target apt update
   - curtin in-target --target=/target apt install -y code
+
 

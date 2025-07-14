@@ -22,8 +22,8 @@ autoinstall:
   
   # User configuration
   identity:
-    hostname: AI-BOB
-    username: matt
+    hostname: nvidia-workstation
+    username: user
     password: $6$RqYP2lhZc7gqtSqF$jNkh4gpFK8Hpqnf4TiQHHiT3zWOF6Gx4fnzyFUh2A.0yCw1OhLXL4.5iWME4qSqYCP8Eab/tsPNelABgXrlbe1
     realname: System User
   
@@ -86,23 +86,6 @@ autoinstall:
     
     # Install latest NVIDIA driver (in case newer version is available)
     - curtin in-target --target=/target -- ubuntu-drivers autoinstall
-    
-    # Enable NVIDIA persistence daemon (only if it exists)
-    - curtin in-target --target=/target -- sh -c 'if systemctl list-unit-files | grep -q nvidia-persistenced; then systemctl enable nvidia-persistenced; fi'
-    
-    # Create user home directory if it doesn't exist
-    - curtin in-target --target=/target -- mkdir -p /home/user
-    - curtin in-target --target=/target -- chown user:user /home/user
-    
-    # Configure NVIDIA settings (only if nvidia-xconfig exists and X is available)
-    - curtin in-target --target=/target -- sh -c 'if command -v nvidia-xconfig >/dev/null 2>&1; then nvidia-xconfig --allow-empty-initial-configuration || true; fi'
-    
-    # Set up NVIDIA environment variables (only if CUDA is installed)
-    - curtin in-target --target=/target -- sh -c 'if [ -d /usr/local/cuda ]; then echo "export PATH=/usr/local/cuda/bin:\$PATH" >> /home/user/.bashrc; fi'
-    - curtin in-target --target=/target -- sh -c 'if [ -d /usr/local/cuda ]; then echo "export LD_LIBRARY_PATH=/usr/local/cuda/lib64:\$LD_LIBRARY_PATH" >> /home/user/.bashrc; fi'
-    
-    # Fix ownership of user files
-    - curtin in-target --target=/target -- chown -R user:user /home/user
     
     # Final system update
     - curtin in-target --target=/target -- apt upgrade -y

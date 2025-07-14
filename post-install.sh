@@ -208,34 +208,79 @@ install_vscode() {
         return 0
     fi
     
-    # Add Microsoft GPG key and repository
+    # Method 1: Try APT repository (recommended)
+    log "Attempting VS Code installation via APT repository..."
     if command_exists curl; then
-        curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /tmp/packages.microsoft.gpg
-        sudo install -o root -g root -m 644 /tmp/packages.microsoft.gpg /etc/apt/trusted.gpg.d/
+        # Install dependencies
+        sudo apt install -y software-properties-common apt-transport-https wget
+        
+        # Add Microsoft GPG key
+        wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
+        sudo install -o root -g root -m 644 packages.microsoft.gpg /etc/apt/trusted.gpg.d/
+        
+        # Add VS Code repository
         echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/trusted.gpg.d/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
         
         # Update package cache and install VS Code
         sudo apt update
         sudo apt install code -y
         
-        # Install useful VS Code extensions
-        log "Installing VS Code extensions..."
-        code --install-extension ms-python.python
-        code --install-extension ms-python.black-formatter
-        code --install-extension ms-python.flake8
-        code --install-extension ms-toolsai.jupyter
-        code --install-extension ms-azuretools.vscode-docker
-        code --install-extension ms-vscode.vscode-json
-        code --install-extension bradlc.vscode-tailwindcss
-        code --install-extension esbenp.prettier-vscode
-        code --install-extension ms-vscode.vscode-typescript-next
-        code --install-extension gitpod.gitpod-desktop
+        # Clean up
+        rm -f packages.microsoft.gpg
         
-        success "VS Code and extensions installed successfully"
+        # Check if installation was successful
+        if command_exists code; then
+            success "VS Code installed successfully via APT"
+            install_vscode_extensions
+        else
+            warning "APT installation failed, trying Snap method..."
+            install_vscode_snap
+        fi
     else
-        error "curl is required to install VS Code"
+        warning "curl/wget not available, trying Snap method..."
+        install_vscode_snap
+    fi
+}
+
+# Function to install VS Code via Snap (fallback method)
+install_vscode_snap() {
+    log "Installing VS Code via Snap..."
+    
+    if command_exists snap; then
+        sudo snap install code --classic
+        
+        if command_exists code; then
+            success "VS Code installed successfully via Snap"
+            install_vscode_extensions
+        else
+            error "VS Code installation failed via both APT and Snap"
+            return 1
+        fi
+    else
+        error "Neither APT nor Snap method worked for VS Code installation"
         return 1
     fi
+}
+
+# Function to install VS Code extensions
+install_vscode_extensions() {
+    log "Installing VS Code extensions..."
+    
+    # Wait a moment for VS Code to be ready
+    sleep 2
+    
+    # Install useful VS Code extensions
+    code --install-extension ms-python.python --force
+    code --install-extension ms-python.black-formatter --force
+    code --install-extension ms-python.flake8 --force
+    code --install-extension ms-toolsai.jupyter --force
+    code --install-extension ms-azuretools.vscode-docker --force
+    code --install-extension ms-vscode.vscode-json --force
+    code --install-extension bradlc.vscode-tailwindcss --force
+    code --install-extension esbenp.prettier-vscode --force
+    code --install-extension ms-vscode.vscode-typescript-next --force
+    
+    success "VS Code extensions installed successfully"
 }
 
 # Function to install useful development tools

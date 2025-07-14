@@ -26,45 +26,43 @@ autoinstall:
     - software-properties-common
     - wget
     - curl
-    - python3
-    - python3-pip
-    - python3-venv
-    - ubuntu-drivers-common
     - apt-transport-https
     - ca-certificates
     - gnupg
     - lsb-release
-    - git
     - build-essential
+    - dkms
+    - linux-headers-generic
+    - pkg-config
+    - libglvnd-dev
+    - python3
+    - python3-pip
+    - python3-venv
   late-commands:
     # Create log file
-    - curtin in-target --target=/target -- touch /var/log/autoinstall-custom.log
-    - curtin in-target --target=/target -- chmod 666 /var/log/autoinstall-custom.log
+    - curtin in-target --target=/target -- sh -c 'mkdir -p /var/log && touch /var/log/autoinstall-custom.log && chmod 666 /var/log/autoinstall-custom.log'
     
     # Update system
-    - curtin in-target --target=/target -- sh -c 'echo "Starting custom installation at $(date)" >> /var/log/autoinstall-custom.log'
-    - curtin in-target --target=/target -- apt update 2>&1 | tee -a /target/var/log/autoinstall-custom.log
+    - curtin in-target --target=/target -- sh -c 'echo "=== Starting RTX 5090 Setup at $(date) ===" >> /var/log/autoinstall-custom.log'
+    - curtin in-target --target=/target -- apt update
+    - curtin in-target --target=/target -- apt upgrade -y
     
-    # Install NVIDIA drivers with error handling
-    - curtin in-target --target=/target -- sh -c 'echo "Installing NVIDIA drivers..." >> /var/log/autoinstall-custom.log'
-    - curtin in-target --target=/target -- add-apt-repository ppa:graphics-drivers/ppa -y 2>&1 | tee -a /target/var/log/autoinstall-custom.log || true
-    - curtin in-target --target=/target -- apt update 2>&1 | tee -a /target/var/log/autoinstall-custom.log
-    - curtin in-target --target=/target -- ubuntu-drivers install --gpgpu 2>&1 | tee -a /target/var/log/autoinstall-custom.log || echo "NVIDIA driver install failed, will retry on first boot" >> /target/var/log/autoinstall-custom.log
+    # CRITICAL: Install VS Code with multiple methods
+    - curtin in-target --target=/target -- sh -c 'echo "=== Installing VS Code ===" >> /var/log/autoinstall-custom.log'
     
-    # Install VS Code - Method 1 (Primary)
-    - curtin in-target --target=/target -- sh -c 'echo "Installing VS Code - Method 1..." >> /var/log/autoinstall-custom.log'
+    # VS Code Method 1: Direct .deb download (MOST RELIABLE)
     - |
       curtin in-target --target=/target -- bash -c '
-      MAX_RETRIES=3
+      echo "Attempting VS Code installation via direct .deb download..." >> /var/log/autoinstall-custom.log
+      cd /tmp
+      MAX_RETRIES=5
       RETRY_COUNT=0
       while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-        echo "VS Code install attempt $((RETRY_COUNT + 1))" >> /var/log/autoinstall-custom.log
-        if wget -q https://packages.microsoft.com/keys/microsoft.asc -O /tmp/microsoft.asc 2>/dev/null; then
-          apt-key add /tmp/microsoft.asc >> /var/log/autoinstall-custom.log 2>&1
-          add-apt-repository "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" >> /var/log/autoinstall-custom.log 2>&1
-          apt update >> /var/log/autoinstall-custom.log 2>&1
-          if apt install -y code >> /var/log/autoinstall-custom.log 2>&1; then
-            echo "VS Code installed successfully" >> /var/log/autoinstall-custom.log
+        echo "VS Code download attempt $((RETRY_COUNT + 1))" >> /var/log/autoinstall-custom.log
+        if wget -q --timeout=30 https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64 -O vscode.deb; then
+          if dpkg -i vscode.deb >> /var/log/autoinstall-custom.log 2>&1; then
+            apt-get install -f -y >> /var/log/autoinstall-custom.log 2>&1
+            echo "VS Code installed successfully via .deb" >> /var/log/autoinstall-custom.log
             break
           fi
         fi
@@ -73,37 +71,214 @@ autoinstall:
       done
       '
     
-    # Create user home directory
+    # VS Code Method 2: Repository method (backup)
+    - |
+      curtin in-target --target=/target -- bash -c '
+      if ! command -v code &> /dev/null; then
+        echo "VS Code not installed via .deb, trying repository method..." >> /var/log/autoinstall-custom.log
+        wget -qO- https://packages.microsoft.com/keys/microsoft.asc | apt-key add - >> /var/log/autoinstall-custom.log 2>&1
+        add-apt-repository "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" >> /var/log/autoinstall-custom.log 2>&1
+        apt update >> /var/log/autoinstall-custom.log 2>&1
+        apt install -y code >> /var/log/autoinstall-custom.log 2>&1
+      fi
+      '
+    
+    # CRITICAL: NVIDIA RTX 5090 Driver Installation
+    # Note: RTX 5090 requires driver version 545+ for proper support
+    - curtin in-target --target=/target -- sh -c 'echo "=== Installing NVIDIA RTX 5090 Drivers ===" >> /var/log/autoinstall-custom.log'
+    
+    # Add NVIDIA PPA for latest drivers
+    - curtin in-target --target=/target -- add-apt-repository ppa:graphics-drivers/ppa -y
+    - curtin in-target --target=/target -- apt update
+    
+    # Install specific driver version for RTX 5090
+    # Using 550+ series for best RTX 5090 support
+    - |
+      curtin in-target --target=/target -- bash -c '
+      echo "Installing NVIDIA drivers for RTX 5090..." >> /var/log/autoinstall-custom.log
+      
+      # First try ubuntu-drivers for automatic detection
+      if ubuntu-drivers install --gpgpu >> /var/log/autoinstall-custom.log 2>&1; then
+        echo "NVIDIA drivers installed via ubuntu-drivers" >> /var/log/autoinstall-custom.log
+      else
+        # Fallback to specific version
+        echo "Falling back to specific driver version..." >> /var/log/autoinstall-custom.log
+        apt install -y nvidia-driver-550 nvidia-utils-550 >> /var/log/autoinstall-custom.log 2>&1
+      fi
+      
+      # Install CUDA toolkit for development
+      apt install -y nvidia-cuda-toolkit >> /var/log/autoinstall-custom.log 2>&1
+      '
+    
+    # Disable nouveau driver (important for RTX 5090)
+    - |
+      cat <<'EOF' | curtin in-target --target=/target -- tee /etc/modprobe.d/blacklist-nouveau.conf
+      blacklist nouveau
+      options nouveau modeset=0
+      EOF
+    
+    - curtin in-target --target=/target -- update-initramfs -u
+    
+    # Create user directory
     - curtin in-target --target=/target -- mkdir -p /home/matt
     
-    # Create VS Code backup installer script (Method 2 - Fallback)
+    # Create comprehensive setup verification script
     - |
-      cat <<'EOF' | curtin in-target --target=/target -- tee /home/matt/install_vscode_fallback.sh
+      cat <<'EOF' | curtin in-target --target=/target -- tee /home/matt/verify_setup.sh
       #!/bin/bash
-      echo "Running VS Code fallback installer..."
+      echo "=== AI-BOB RTX 5090 Setup Verification ==="
+      echo "Date: $(date)"
+      echo ""
       
-      # Method 2: Direct .deb download
-      if ! command -v code &> /dev/null; then
-        echo "VS Code not found, installing via direct download..."
-        cd /tmp
-        wget -q https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64 -O vscode.deb
-        if [ -f vscode.deb ]; then
-          sudo dpkg -i vscode.deb
-          sudo apt-get install -f -y
-          echo "VS Code installed via .deb package"
+      # Check VS Code
+      echo "=== VS Code Status ==="
+      if command -v code &> /dev/null; then
+        echo "✓ VS Code is installed"
+        echo "  Version: $(code --version 2>/dev/null | head -1)"
+      else
+        echo "✗ VS Code is NOT installed"
+        echo "  Run: sudo apt install code"
+      fi
+      echo ""
+      
+      # Check NVIDIA Drivers
+      echo "=== NVIDIA RTX 5090 Driver Status ==="
+      if command -v nvidia-smi &> /dev/null; then
+        echo "✓ NVIDIA drivers are installed"
+        nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv
+        echo ""
+        # Check if it's actually a 5090
+        if nvidia-smi --query-gpu=name --format=csv,noheader | grep -q "5090"; then
+          echo "✓ RTX 5090 detected"
         else
-          echo "Failed to download VS Code .deb package"
+          echo "⚠ GPU detected but it's not showing as RTX 5090"
         fi
       else
-        echo "VS Code is already installed"
+        echo "✗ NVIDIA drivers are NOT installed"
+        echo "  Run: sudo ubuntu-drivers install"
+      fi
+      echo ""
+      
+      # Check CUDA
+      echo "=== CUDA Status ==="
+      if command -v nvcc &> /dev/null; then
+        echo "✓ CUDA toolkit is installed"
+        echo "  Version: $(nvcc --version | grep release | awk '{print $6}')"
+      else
+        echo "✗ CUDA toolkit is NOT installed"
+      fi
+      echo ""
+      
+      # System info
+      echo "=== System Information ==="
+      echo "Kernel: $(uname -r)"
+      echo "Ubuntu: $(lsb_release -d | cut -f2)"
+      echo ""
+      
+      # Check for issues
+      echo "=== Checking for common issues ==="
+      if lsmod | grep -q nouveau; then
+        echo "⚠ WARNING: nouveau driver is still loaded. Reboot required!"
+      else
+        echo "✓ nouveau driver is not loaded"
+      fi
+      
+      if [ -f /var/log/autoinstall-custom.log ]; then
+        echo ""
+        echo "=== Recent install log entries ==="
+        tail -20 /var/log/autoinstall-custom.log | grep -E "(error|failed|warning|success)" -i
       fi
       EOF
     
-    # Create PyTorch installation script
+    # Create emergency VS Code installer
     - |
-      cat <<'EOF' | curtin in-target --target=/target -- tee /home/matt/install_pytorch.sh
+      cat <<'EOF' | curtin in-target --target=/target -- tee /home/matt/install_vscode_emergency.sh
       #!/bin/bash
-      echo "Installing PyTorch with CUDA support..."
+      echo "=== Emergency VS Code Installer ==="
+      echo "This will ensure VS Code is installed no matter what"
+      
+      if command -v code &> /dev/null; then
+        echo "VS Code is already installed!"
+        code --version
+        exit 0
+      fi
+      
+      echo "Method 1: Direct download..."
+      cd /tmp
+      wget https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64 -O vscode.deb
+      if [ -f vscode.deb ]; then
+        sudo dpkg -i vscode.deb
+        sudo apt-get install -f -y
+      fi
+      
+      if command -v code &> /dev/null; then
+        echo "Success! VS Code is now installed"
+        exit 0
+      fi
+      
+      echo "Method 2: Snap package..."
+      sudo snap install code --classic
+      
+      if command -v code &> /dev/null; then
+        echo "Success! VS Code is now installed via snap"
+        exit 0
+      fi
+      
+      echo "Method 3: Repository..."
+      wget -qO- https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+      sudo add-apt-repository "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main"
+      sudo apt update
+      sudo apt install code -y
+      
+      if command -v code &> /dev/null; then
+        echo "Success! VS Code is now installed"
+      else
+        echo "ERROR: All installation methods failed. Please install manually."
+      fi
+      EOF
+    
+    # Create NVIDIA driver fix script
+    - |
+      cat <<'EOF' | curtin in-target --target=/target -- tee /home/matt/fix_nvidia_drivers.sh
+      #!/bin/bash
+      echo "=== NVIDIA RTX 5090 Driver Fix Script ==="
+      
+      # Remove any existing NVIDIA drivers
+      echo "Removing existing NVIDIA drivers..."
+      sudo apt-get remove --purge '^nvidia-.*' -y
+      sudo apt-get remove --purge '^libnvidia-.*' -y
+      sudo apt-get autoremove -y
+      
+      # Add PPA
+      echo "Adding Graphics Drivers PPA..."
+      sudo add-apt-repository ppa:graphics-drivers/ppa -y
+      sudo apt update
+      
+      # Install latest drivers
+      echo "Installing latest NVIDIA drivers..."
+      sudo ubuntu-drivers install
+      
+      # Blacklist nouveau
+      echo "Blacklisting nouveau..."
+      echo -e "blacklist nouveau\noptions nouveau modeset=0" | sudo tee /etc/modprobe.d/blacklist-nouveau.conf
+      sudo update-initramfs -u
+      
+      echo "Driver installation complete. Please reboot your system."
+      echo "After reboot, run: nvidia-smi"
+      EOF
+    
+    # PyTorch installation script optimized for RTX 5090
+    - |
+      cat <<'EOF' | curtin in-target --target=/target -- tee /home/matt/install_pytorch_5090.sh
+      #!/bin/bash
+      echo "=== Installing PyTorch for RTX 5090 ==="
+      
+      # Check if NVIDIA drivers are working
+      if ! nvidia-smi &> /dev/null; then
+        echo "ERROR: NVIDIA drivers not detected. Please install drivers first."
+        echo "Run: bash ~/fix_nvidia_drivers.sh"
+        exit 1
+      fi
       
       # Create virtual environment
       python3 -m venv ~/pytorch_env
@@ -112,131 +287,43 @@ autoinstall:
       # Upgrade pip
       pip install --upgrade pip
       
-      # Install PyTorch with retry logic
-      MAX_RETRIES=3
-      RETRY_COUNT=0
+      # Install PyTorch with CUDA 12.1 support (best for RTX 5090)
+      echo "Installing PyTorch with CUDA 12.1 support..."
+      pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
       
-      while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-        echo "PyTorch install attempt $((RETRY_COUNT + 1))"
-        if pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121; then
-          echo "PyTorch installed successfully!"
-          echo "To activate the environment, run: source ~/pytorch_env/bin/activate"
-          break
-        else
-          RETRY_COUNT=$((RETRY_COUNT + 1))
-          if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-            echo "Installation failed, retrying in 30 seconds..."
-            sleep 30
-          else
-            echo "PyTorch installation failed after $MAX_RETRIES attempts"
-            exit 1
-          fi
-        fi
-      done
-      EOF
-    
-    # Create NVIDIA driver fallback script
-    - |
-      cat <<'EOF' | curtin in-target --target=/target -- tee /home/matt/install_nvidia_fallback.sh
-      #!/bin/bash
-      if ! nvidia-smi &> /dev/null; then
-        echo "NVIDIA drivers not detected, attempting installation..."
-        sudo add-apt-repository ppa:graphics-drivers/ppa -y
-        sudo apt update
-        sudo ubuntu-drivers install --gpgpu
-      else
-        echo "NVIDIA drivers are already installed"
-        nvidia-smi
-      fi
-      EOF
-    
-    # Create master setup script
-    - |
-      cat <<'EOF' | curtin in-target --target=/target -- tee /home/matt/complete_setup.sh
-      #!/bin/bash
-      echo "=== Running AI-BOB Setup Script ==="
-      echo "This script will ensure all components are properly installed"
+      # Verify installation
+      python -c "import torch; print(f'PyTorch {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}'); print(f'GPU: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"Not detected\"}')"
       
-      # Check and install VS Code if needed
-      if ! command -v code &> /dev/null; then
-        echo "VS Code not found, running fallback installer..."
-        bash ~/install_vscode_fallback.sh
-      else
-        echo "✓ VS Code is installed"
-      fi
-      
-      # Check and install NVIDIA drivers if needed
-      if ! nvidia-smi &> /dev/null; then
-        echo "NVIDIA drivers not found, running fallback installer..."
-        bash ~/install_nvidia_fallback.sh
-      else
-        echo "✓ NVIDIA drivers are installed"
-        nvidia-smi
-      fi
-      
-      # Install PyTorch
-      echo "Installing PyTorch..."
-      bash ~/install_pytorch.sh
-      
-      echo "=== Setup Complete ==="
-      echo "VS Code: $(code --version 2>/dev/null | head -1 || echo 'Not installed')"
-      echo "NVIDIA: $(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null || echo 'Not installed')"
-      echo "PyTorch environment: ~/pytorch_env"
+      echo ""
+      echo "Installation complete!"
+      echo "To activate PyTorch environment: source ~/pytorch_env/bin/activate"
       EOF
     
     # Set permissions
-    - curtin in-target --target=/target -- chmod +x /home/matt/install_vscode_fallback.sh
-    - curtin in-target --target=/target -- chmod +x /home/matt/install_pytorch.sh
-    - curtin in-target --target=/target -- chmod +x /home/matt/install_nvidia_fallback.sh
-    - curtin in-target --target=/target -- chmod +x /home/matt/complete_setup.sh
+    - curtin in-target --target=/target -- chmod +x /home/matt/verify_setup.sh
+    - curtin in-target --target=/target -- chmod +x /home/matt/install_vscode_emergency.sh
+    - curtin in-target --target=/target -- chmod +x /home/matt/fix_nvidia_drivers.sh
+    - curtin in-target --target=/target -- chmod +x /home/matt/install_pytorch_5090.sh
     - curtin in-target --target=/target -- chown -R matt:matt /home/matt
     
-    # Create systemd service for first-boot setup
-    - |
-      cat <<'EOF' | curtin in-target --target=/target -- tee /etc/systemd/system/firstboot-setup.service
-      [Unit]
-      Description=First Boot Setup for AI-BOB
-      After=network-online.target
-      Wants=network-online.target
-      ConditionPathExists=!/home/matt/.firstboot_complete
-      
-      [Service]
-      Type=oneshot
-      User=matt
-      Environment="HOME=/home/matt"
-      ExecStart=/bin/bash /home/matt/complete_setup.sh
-      ExecStartPost=/usr/bin/touch /home/matt/.firstboot_complete
-      TimeoutSec=1800
-      
-      [Install]
-      WantedBy=multi-user.target
-      EOF
-    
-    - curtin in-target --target=/target -- systemctl enable firstboot-setup.service
-    
-    # Create desktop shortcut for manual setup (backup)
+    # Create desktop shortcuts
     - curtin in-target --target=/target -- mkdir -p /home/matt/Desktop
     - |
-      cat <<'EOF' | curtin in-target --target=/target -- tee /home/matt/Desktop/complete-setup.desktop
+      cat <<'EOF' | curtin in-target --target=/target -- tee /home/matt/Desktop/verify-setup.desktop
       [Desktop Entry]
       Version=1.0
       Type=Application
-      Name=Complete AI-BOB Setup
-      Comment=Run this if automatic setup didn't complete
-      Exec=gnome-terminal -- bash -c "/home/matt/complete_setup.sh; echo Press any key to close; read"
-      Icon=system-software-install
+      Name=Verify RTX 5090 Setup
+      Comment=Check VS Code and NVIDIA driver installation
+      Exec=gnome-terminal -- bash -c "/home/matt/verify_setup.sh; echo Press any key to close; read"
+      Icon=nvidia-settings
       Terminal=true
       Categories=System;
       EOF
     
-    - curtin in-target --target=/target -- chmod +x /home/matt/Desktop/complete-setup.desktop
-    - curtin in-target --target=/target -- chown matt:matt /home/matt/Desktop/complete-setup.desktop
+    - curtin in-target --target=/target -- chmod +x /home/matt/Desktop/verify-setup.desktop
+    - curtin in-target --target=/target -- chown matt:matt /home/matt/Desktop/verify-setup.desktop
     
-    # Final status report
-    - curtin in-target --target=/target -- sh -c 'echo "=== Installation Summary ===" >> /var/log/autoinstall-custom.log'
-    - curtin in-target --target=/target -- sh -c 'echo "Hostname: AI-BOB" >> /var/log/autoinstall-custom.log'
-    - curtin in-target --target=/target -- sh -c 'echo "User: matt" >> /var/log/autoinstall-custom.log'
-    - curtin in-target --target=/target -- sh -c 'echo "VS Code: $(dpkg -l code 2>/dev/null | grep ^ii && echo Installed || echo Not installed)" >> /var/log/autoinstall-custom.log'
-    - curtin in-target --target=/target -- sh -c 'echo "Setup scripts created in /home/matt/" >> /var/log/autoinstall-custom.log'
-    - curtin in-target --target=/target -- sh -c 'echo "Log file: /var/log/autoinstall-custom.log" >> /var/log/autoinstall-custom.log'
-    - curtin in-target --target=/target -- sh -c 'echo "Installation completed at $(date)" >> /var/log/autoinstall-custom.log'
+    # Final check
+    - curtin in-target --target=/target -- sh -c 'echo "=== Installation Complete at $(date) ===" >> /var/log/autoinstall-custom.log'
+    - curtin in-target --target=/target -- sh -c 'dpkg -l | grep -E "(code|nvidia)" >> /var/log/autoinstall-custom.log'

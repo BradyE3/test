@@ -6,14 +6,6 @@ autoinstall:
   keyboard:
     layout: us
   
-  # Network configuration
-  network:
-    network:
-      version: 2
-      ethernets:
-        eth0:
-          dhcp4: true
-  
   # Storage configuration - simple single disk setup
   storage:
     layout:

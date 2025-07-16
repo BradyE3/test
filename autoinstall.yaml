@@ -57,9 +57,9 @@ autoinstall:
     - dkms
     - linux-headers-generic
     
-    # NVIDIA packages
-    - nvidia-driver-560  # Latest available driver
-    - nvidia-dkms-560
+    # NVIDIA packages - using open source drivers
+    - nvidia-driver-560-open  # Open source driver variant
+    - nvidia-dkms-560-open
     - nvidia-utils-560
     - nvidia-settings
     - nvidia-prime
@@ -85,6 +85,8 @@ autoinstall:
     - curtin in-target --target=/target -- apt update
     
     # Install latest NVIDIA driver (in case newer version is available)
+    # Note: This will install the recommended driver, which may be proprietary
+    # Comment out if you want to stick with open drivers only
     - curtin in-target --target=/target -- ubuntu-drivers autoinstall
     
     # Final system update

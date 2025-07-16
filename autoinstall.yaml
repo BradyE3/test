@@ -1,31 +1,38 @@
 #cloud-config
 autoinstall:
   version: 1
+  
+  # Basic system configuration
   locale: en_US.UTF-8
   keyboard:
     layout: us
-
+  
+  # Network configuration
   network:
     network:
       version: 2
       ethernets:
         eth0:
           dhcp4: true
-
+  
+  # Storage configuration - simple single disk setup
   storage:
     layout:
       name: lvm
-
+  
+  # User configuration
   identity:
     hostname: bhc-ai
     username: aiuser
     password: $6$RqYP2lhZc7gqtSqF$jNkh4gpFK8Hpqnf4TiQHHiT3zWOF6Gx4fnzyFUh2A.0yCw1OhLXL4.5iWME4qSqYCP8Eab/tsPNelABgXrlbe1
     realname: svc-ai
-
+  
+  # SSH configuration
   ssh:
     install-server: true
     allow-pw: true
-
+  
+  # Package configuration
   apt:
     primary:
       - arches: [amd64, i386]
@@ -34,40 +41,58 @@ autoinstall:
       - arches: [amd64, i386]
         uri: http://security.ubuntu.com/ubuntu
     sources:
+      # Graphics drivers PPA
       graphics-drivers:
         source: 'ppa:graphics-drivers/ppa'
         keyid: 'FCAE110B1118213C'
-
-packages:
-  - ubuntu-desktop-minimal
-  - gdm3
-  - curl
-  - wget
-  - git
-  - build-essential
-  - dkms
-  - linux-headers-generic
-  # - firefox  
-  - vim
-  - htop
-  - tree
-  - unzip
-  - software-properties-common
-  - apt-transport-https
-  - ca-certificates
-  - gnupg
-  - lsb-release
-
-
+  
+  # Package selection
+  packages:
+    # Basic system packages
+    - ubuntu-desktop-minimal
+    - curl
+    - wget
+    - git
+    - build-essential
+    - dkms
+    - linux-headers-generic
+    
+    # NVIDIA packages
+    - nvidia-driver-560  # Latest available driver
+    - nvidia-dkms-560
+    - nvidia-utils-560
+    - nvidia-settings
+    - nvidia-prime
+    
+    # VS Code - removed due to installation issues
+    # Install manually after system setup if needed
+    
+    # Additional useful packages
+    - firefox
+    - vim
+    - htop
+    - tree
+    - unzip
+    - software-properties-common
+    - apt-transport-https
+    - ca-certificates
+    - gnupg
+    - lsb-release
+  
+  # Late commands to run after installation
   late-commands:
+    # Update package lists
     - curtin in-target --target=/target -- apt update
+    
+    # Install latest NVIDIA driver (in case newer version is available)
     - curtin in-target --target=/target -- ubuntu-drivers autoinstall
+    
+    # Final system update
     - curtin in-target --target=/target -- apt upgrade -y
+    
+    # Clean up
     - curtin in-target --target=/target -- apt autoremove -y
     - curtin in-target --target=/target -- apt autoclean
-    - curtin in-target --target=/target -- grub-install /dev/sda  # Adjust if needed
-    - curtin in-target --target=/target -- update-grub
-    - curtin in-target --target=/target -- sed -i 's/quiet splash/verbose/' /etc/default/grub
-    - curtin in-target --target=/target -- update-grub
-
+  
+  # Automatic reboot after installation
   shutdown: reboot

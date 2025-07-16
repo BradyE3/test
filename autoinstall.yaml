@@ -22,10 +22,10 @@ autoinstall:
   
   # User configuration
   identity:
-    hostname: nvidia-workstation
-    username: user
+    hostname: bhc-ai
+    username: aiuser
     password: $6$RqYP2lhZc7gqtSqF$jNkh4gpFK8Hpqnf4TiQHHiT3zWOF6Gx4fnzyFUh2A.0yCw1OhLXL4.5iWME4qSqYCP8Eab/tsPNelABgXrlbe1
-    realname: System User
+    realname: svc-ai
   
   # SSH configuration
   ssh:

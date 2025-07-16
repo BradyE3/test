@@ -38,25 +38,26 @@ autoinstall:
         source: 'ppa:graphics-drivers/ppa'
         keyid: 'FCAE110B1118213C'
 
-  packages:
-    - ubuntu-desktop-minimal
-    - gdm3
-    - curl
-    - wget
-    - git
-    - build-essential
-    - dkms
-    - linux-headers-generic
-    - firefox
-    - vim
-    - htop
-    - tree
-    - unzip
-    - software-properties-common
-    - apt-transport-https
-    - ca-certificates
-    - gnupg
-    - lsb-release
+packages:
+  - ubuntu-desktop-minimal
+  - gdm3
+  - curl
+  - wget
+  - git
+  - build-essential
+  - dkms
+  - linux-headers-generic
+  # - firefox  
+  - vim
+  - htop
+  - tree
+  - unzip
+  - software-properties-common
+  - apt-transport-https
+  - ca-certificates
+  - gnupg
+  - lsb-release
+
 
   late-commands:
     - curtin in-target --target=/target -- apt update
